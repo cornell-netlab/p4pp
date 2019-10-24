@@ -17,6 +17,15 @@ let undefine env m =
 let get_file env = env.file
 let set_file env file = { env with file }
 
+let rec find includes file = 
+  match includes with 
+  | [] -> 
+     failwith ("Error: " ^ file ^ " could not be found")
+  | h::t -> 
+     let path = Filename.concat h file in
+     if Sys.file_exists path = `Yes then path
+     else find t file
+
 let rec eval (includes:string list) (env:env) (buf:Buffer.t) (term:term) : env = 
   match term with 
   | String(s) -> 
@@ -24,10 +33,11 @@ let rec eval (includes:string list) (env:env) (buf:Buffer.t) (term:term) : env =
      env
   | Include(line,search,file) -> 
      let current = get_file env in 
-     Buffer.add_string buf (Printf.sprintf "#line \"%s\" %d\n" file 1);
-     let env = set_file env file in
-     let env = eval_file includes env buf file in
-     let env = set_file env current in 
+     let path = find includes file in 
+     Buffer.add_string buf (Printf.sprintf "#line \"%s\" %d\n" path 1);
+     let env = set_file env path in
+     let env = eval_file includes env buf path in
+     let env = set_file env current in
      Buffer.add_string buf "\n";
      Buffer.add_string buf (Printf.sprintf "#line \"%s\" %d\n" current line);
      env
