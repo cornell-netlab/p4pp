@@ -1,0 +1,10 @@
+(menhir
+  (flags --explain)
+  (modules parser))
+
+(ocamllex (modules lexer))
+
+(library
+  (public_name p4pp)
+  (name p4pp)
+   (libraries core))
