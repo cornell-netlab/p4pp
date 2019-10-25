@@ -2,7 +2,7 @@
   (flags --explain)
   (modules parser))
 
-(ocamllex (modules lexer))
+(ocamllex (modules lexer prelexer))
 
 (library
   (public_name p4pp)

@@ -20,44 +20,144 @@ exception Error of string
 
 let current_line  = ref 1 
     
+type lexer = Line | Test
+let lexer = ref Line
+
 let reset () =
+  lexer := Line;
   current_line := 1
 
-let newline lexbuf =
+let newline () =
   incr current_line
+
+
 }
 
-let whitespace = [' ' '\t' '\r']*
+let white = [' ' '\t' '\r']
+let whitespace = white+
+let opt_whitespace = white*
 
-let identifier = ['_' 'A'-'Z' 'a'-'z']['_' 'A'-'Z' 'a'-'z' '0'-'9']
+
+let identifier = ['_' 'A'-'Z' 'a'-'z']['_' 'A'-'Z' 'a'-'z' '0'-'9']*
 
 let q_chars = [^ '"' '\n']+
 let h_chars = [^ '>' '\n']+
+let digits = ['0'-'9']+
 
-rule tokenize = parse
+rule token = parse
+  | "" 
+    { match !lexer with 
+      | Line -> line lexbuf
+      | Test -> test lexbuf }
+
+and line = parse
   | '\n'
-      { newline lexbuf; NEWLINE }
-  | "#include" whitespace '"' (q_chars as filename) '"' whitespace '\n' 
-      { newline lexbuf; INCLUDE(!current_line, false, filename) }
-  | "#include" whitespace '<' (h_chars as filename) '>' whitespace '\n' 
-      { newline lexbuf; INCLUDE(!current_line, true, filename) }
-  | "#define" whitespace '"' (identifier as macro) '"' whitespace '\n' 
-      { newline lexbuf; DEFINE(macro) }
-  | "#undef" whitespace (identifier as macro) whitespace '\n'
-      { newline lexbuf; UNDEF(macro) }
-  | "#ifdef" whitespace (identifier as macro) whitespace '\n'
-      { newline lexbuf; IFDEF(macro) }
-  | "#ifndef" whitespace (identifier as macro) whitespace '\n'
-      { newline lexbuf; IFNDEF(macro) }
-  | "#else" whitespace '\n'
-      { newline lexbuf; ELSE }
-  | "#endif" whitespace '\n'
-      { newline lexbuf; ENDIF }
+      { newline (); TEXT("\n") }
+  | "\"" 
+      { STRING(string lexbuf) }
+  | "#include" opt_whitespace '"' (q_chars as filename) '"' opt_whitespace '\n' 
+      { newline (); INCLUDE(!current_line, false, filename) }
+  | "#include" opt_whitespace '<' (h_chars as filename) '>' opt_whitespace '\n' 
+      { newline (); INCLUDE(!current_line, true, filename) }
+  | "#define" opt_whitespace (identifier as macro) opt_whitespace '\n' 
+      { newline (); DEFINE(macro) }
+  | "#undef" opt_whitespace (identifier as macro) opt_whitespace '\n'
+      { newline (); UNDEF(macro) }
+  | "#ifdef" opt_whitespace (identifier as macro) opt_whitespace '\n'
+      { newline (); IFDEF(!current_line, macro) }
+  | "#ifndef" opt_whitespace (identifier as macro) opt_whitespace '\n'
+      { newline (); IFNDEF(!current_line, macro) }
+  | "#if" 
+      { lexer := Test; 
+        IF(!current_line) }
+  | "#else" opt_whitespace '\n'
+      { newline (); ELSE(!current_line) }
+  | "#endif" opt_whitespace '\n'
+      { newline (); ENDIF(!current_line) }
+  | "#line" opt_whitespace (digits as number) [^ '\n']* '\n' 
+      { current_line := int_of_string number;
+        TEXT(lexeme lexbuf)}
   | eof
       { END }
   | _
-      { STRING(lexeme lexbuf) }
-                 
+      { TEXT(lexeme lexbuf) }
+  
+and string = parse
+  | eof
+    { raise (Error "File ended while reading a string litteral" ) }
+  | "\\\""
+    { let rest = string lexbuf in
+      "\"" ^ rest }
+  | '\\' 'n'
+    { let rest = string lexbuf in 
+      "\n" ^ rest }
+  | '\\' '\\'
+    { let rest = string lexbuf in
+      "\\" ^ rest }
+  | '\\' _ as c
+    { raise (Error ("Escape sequences not yet supported: \\" ^ c)) }
+  | '"'
+    { "" }
+  | _ as chr
+    { let rest = string lexbuf in
+      (String.make 1 chr) ^ rest }
+
+and test = parse
+  | "defined"
+    { DEFINED }
+  | digits 
+    { INT(Int64.of_string (lexeme lexbuf)) }
+  | identifier 
+    { IDENT(lexeme lexbuf) }
+  | "("
+    { LPAREN }
+  | ")" 
+    { RPAREN}
+  | "!"
+    { NOT }
+  | "&&" 
+    { AND }
+  | "||"
+    { OR }
+  | "+" 
+    { ADD }
+  | "-" 
+    { SUB }
+  | "*"
+    { MULT }
+  | "/"
+    { DIV }
+  | "=="
+    { EQ }
+  | "!=" 
+    { NEQ }
+  | "<"
+    { LT }
+  | ">" 
+    { GT }
+  | "<="
+    { LE }
+  | ">=" 
+    { GE }
+  | "&"
+    { BAND }
+  | "|" 
+    { BOR }
+  | "~"
+    { BNOT }
+  | "<<"
+    { BSHL }
+  | ">>" 
+    { BSHR }
+  | "^"
+    { BXOR }
+  | "\n"
+    { lexer := Line; newline (); TEXT(lexeme lexbuf) }
+  | whitespace
+    { test lexbuf }
+  | eof 
+    { END }
+  
 {
 
 }
