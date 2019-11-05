@@ -1,4 +1,4 @@
-open Core
+open Core_kernel
 open Ast
 
 type env =
@@ -23,7 +23,7 @@ let rec find includes file =
      failwith ("Error: " ^ file ^ " could not be found")
   | h::t ->
      let path = Filename.concat h file in
-     if Sys.file_exists path = `Yes then path
+     if Sys.file_exists path then path
      else find t file
 
 let eval_binop (bop:bop) =
