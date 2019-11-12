@@ -66,7 +66,8 @@ let rec eval_test (env:env) (test:test) : Int64.t =
   | UnOp(uop,test1) ->
      eval_uop uop (eval_test env test1)
 
-let rec eval (includes:string list) (env:env) (buf:Buffer.t) (term:term) : env =
+let rec eval (includes:string list) (env:env) (buf:Buffer.t) (term:term) (file_io:bool): env =
+  print_endline "testing install!";
   let current = get_file env in
   match term with
   | String(s) ->
@@ -76,13 +77,26 @@ let rec eval (includes:string list) (env:env) (buf:Buffer.t) (term:term) : env =
      Buffer.add_string buf s;
      env
   | Include(line,search,file) ->
-     let path = find includes file in
-     let env = set_file env path in
-     let env = preprocess_file includes env buf path in
-     let env = set_file env current in
-     Buffer.add_string buf "\n";
-     Buffer.add_string buf (Printf.sprintf "#line %d \"%s\" %d\n" line current 2);
-     env
+     let env =
+      if file_io then begin
+        let path = find includes file in
+        let env = set_file env path in
+        let env = preprocess_file includes env buf path in
+        set_file env current
+        end
+      else begin
+        let env = set_file env file in
+        let contents =
+          if file = "core.p4" then Bake.core_p4_str
+          else if file = "v1model.p4" then Bake.core_v1_model_str
+          else failwith ("Error: " ^ file ^ " could not be found in bake") in
+        preprocess_string includes env buf contents
+        end
+    in
+    let env = set_file env current in
+    Buffer.add_string buf "\n";
+    Buffer.add_string buf (Printf.sprintf "#line %d \"%s\" %d\n" line current 2);
+    env
   | Define(m) ->
      let env = define env m in
      Buffer.add_string buf "\n";
@@ -93,25 +107,25 @@ let rec eval (includes:string list) (env:env) (buf:Buffer.t) (term:term) : env =
      env
   | IfDef(macro,line_tru,tru,line_fls,fls,line_end) ->
      let b = is_defined env macro in
-     cond includes env buf b line_tru tru line_fls fls line_end
+     cond includes env buf b line_tru tru line_fls fls line_end file_io
   | IfNDef(macro,line_tru,tru,line_fls,fls,line_end) ->
      let b = not(is_defined env macro) in
-     cond includes env buf b line_tru tru line_fls fls line_end
+     cond includes env buf b line_tru tru line_fls fls line_end file_io
   | If(test,line_tru, tru, line_fls, fls, line_end) ->
      let b = Int64.zero = eval_test env test in
-     cond includes env buf b line_tru tru line_fls fls line_end
+     cond includes env buf b line_tru tru line_fls fls line_end file_io
 
-and cond includes env buf b line_tru tru line_fls fls line_end =
+and cond includes env buf b line_tru tru line_fls fls line_end file_io =
   let current = get_file env in
   let env =
     if b then
       begin
         Buffer.add_string buf (Printf.sprintf "#line %d \"%s\"\n" line_tru current);
-        List.fold_left ~init:env ~f:(fun env term -> eval includes env buf term) tru
+        List.fold_left ~init:env ~f:(fun env term -> eval includes env buf term file_io) tru
       end
     else
       begin
-        Buffer.add_string buf (Printf.sprintf "#line %d \"%s\"\n" line_fls current);              List.fold_left ~init:env ~f:(fun env term -> eval includes env buf term) fls
+        Buffer.add_string buf (Printf.sprintf "#line %d \"%s\"\n" line_fls current);              List.fold_left ~init:env ~f:(fun env term -> eval includes env buf term file_io) fls
       end in
   Buffer.add_string buf (Printf.sprintf "#line %d \"%s\"\n" line_end current);
   env
@@ -122,7 +136,7 @@ and preprocess_string (includes:string list) (env:env) (buf:Buffer.t) (file_cont
   let terms =
     try Parser.program Lexer.token lexbuf
     with _ -> failwith ("Error parsing " ^ "typed input" ^ " : " ^ string_of_int (!Lexer.current_line)) in
-  List.fold_left ~init:env ~f:(fun env term -> eval includes env buf term) terms
+  List.fold_left ~init:env ~f:(fun env term -> eval includes env buf term false) terms
 
 and preprocess_file (includes:string list) (env:env) (buf:Buffer.t) (file:string) : env =
   let () = Buffer.add_string buf (Printf.sprintf "#line %d \"%s\" %d\n" 1 file 1) in
@@ -135,4 +149,4 @@ and preprocess_file (includes:string list) (env:env) (buf:Buffer.t) (file:string
   let terms =
     try Parser.program Lexer.token lexbuf
     with _ -> failwith ("Error parsing " ^ file ^ " : " ^ string_of_int (!Lexer.current_line)) in
-  List.fold_left ~init:env ~f:(fun env term -> eval includes env buf term) terms
+  List.fold_left ~init:env ~f:(fun env term -> eval includes env buf term true) terms
