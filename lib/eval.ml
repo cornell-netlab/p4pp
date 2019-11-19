@@ -67,7 +67,6 @@ let rec eval_test (env:env) (test:test) : Int64.t =
      eval_uop uop (eval_test env test1)
 
 let rec eval (includes:string list) (env:env) (buf:Buffer.t) (term:term) (file_io:bool): env =
-  print_endline "testing install!";
   let current = get_file env in
   match term with
   | String(s) ->
@@ -83,19 +82,19 @@ let rec eval (includes:string list) (env:env) (buf:Buffer.t) (term:term) (file_i
         let env = set_file env path in
         let env = preprocess_file includes env buf path in
         set_file env current
-        end
+      end
       else begin
-        let env = set_file env file in
+        let path = file in
+        let env = set_file env path in
         let contents =
           if file = "core.p4" then Bake.core_p4_str
           else if file = "v1model.p4" then Bake.core_v1_model_str
           else failwith ("Error: " ^ file ^ " could not be found in bake") in
-        preprocess_string includes env buf contents
-        end
-    in
-    let env = set_file env current in
-    Buffer.add_string buf "\n";
-    Buffer.add_string buf (Printf.sprintf "#line %d \"%s\" %d\n" line current 2);
+          preprocess_string includes env buf file contents
+      end in
+     let env = set_file env current in
+     Buffer.add_string buf "\n";
+     Buffer.add_string buf (Printf.sprintf "#line %d \"%s\" %d\n" line current 2);
     env
   | Define(m) ->
      let env = define env m in
@@ -130,9 +129,12 @@ and cond includes env buf b line_tru tru line_fls fls line_end file_io =
   Buffer.add_string buf (Printf.sprintf "#line %d \"%s\"\n" line_end current);
   env
 
-and preprocess_string (includes:string list) (env:env) (buf:Buffer.t) (file_contents:string) : env =
-  let () = Buffer.add_string buf (Printf.sprintf "#line %d \"%s\" %d\n" 1 "typed_input.p4" 1) in
-  let lexbuf = Lexing.from_string file_contents |> Prelexer.lex |> Lexing.from_string in
+and preprocess_string (includes:string list) (env:env) (buf:Buffer.t) (file:string) (file_contents:string) : env =
+  let () = Buffer.add_string buf (Printf.sprintf "#line %d \"%s\" %d\n" 1 file 1) in
+  let lexbuf = Lexing.from_string file_contents in
+  let () = Prelexer.reset file in
+  let string = Prelexer.lex lexbuf in
+  let lexbuf = Lexing.from_string string in
   let terms =
     try Parser.program Lexer.token lexbuf
     with _ -> failwith ("Error parsing " ^ "typed input" ^ " : " ^ string_of_int (!Lexer.current_line)) in
