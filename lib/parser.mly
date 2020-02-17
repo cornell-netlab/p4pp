@@ -14,7 +14,7 @@
  *)
 
 %{
-open Core
+open Core_kernel
 open Ast
 %}
 
@@ -44,10 +44,10 @@ open Ast
 %left BXOR
 %left BAND
 %left BSHL BSHR
-%left ADD SUB 
+%left ADD SUB
 %left MULT DIV
 %nonassoc NOT
-%nonassoc BNOT 
+%nonassoc BNOT
 
 %start <Ast.term list> program
 
@@ -63,38 +63,38 @@ term:
       { String($1) }
   | TEXT
       { Text($1) }
-  | INCLUDE 
-      { let line, search, filename = $1 in 
+  | INCLUDE
+      { let line, search, filename = $1 in
         Include(line, search, filename) }
-  | DEFINE 
+  | DEFINE
       { Define($1) }
-  | UNDEF 
+  | UNDEF
       { Undef($1) }
   | IFDEF term* ENDIF
-      { let line1, macro = $1 in 
+      { let line1, macro = $1 in
         let line2 = $3 in
-        IfDef(macro, line1, $2, line2, [], line2) } 
+        IfDef(macro, line1, $2, line2, [], line2) }
   | IFDEF term* ELSE term* ENDIF
-      { let line1, macro = $1 in 
-        let line2 = $3 in 
-        let line3 = $5 in 
-        IfDef(macro, line1, $2, line2, $4, line3) } 
+      { let line1, macro = $1 in
+        let line2 = $3 in
+        let line3 = $5 in
+        IfDef(macro, line1, $2, line2, $4, line3) }
   | IFNDEF term* ENDIF
       { let line1, macro = $1 in
-        let line2 = $3 in 
-        IfNDef(macro, line1, $2, line2, [], line2) } 
+        let line2 = $3 in
+        IfNDef(macro, line1, $2, line2, [], line2) }
   | IFNDEF term* ELSE term* ENDIF
-      { let line1, macro = $1 in 
-        let line2 = $3 in 
+      { let line1, macro = $1 in
+        let line2 = $3 in
         let line3 = $5 in
         IfNDef(macro, line1, $2, line2, $4, line3) }
-  | IF test term* ENDIF 
-      { let line1 = $1 in 
-        let line2 = $4 in 
+  | IF test term* ENDIF
+      { let line1 = $1 in
+        let line2 = $4 in
         If($2, line1, $3, line2, [], line2) }
   | IF test term* ELSE term* ENDIF
-      { let line1 = $1 in 
-        let line2 = $4 in 
+      { let line1 = $1 in
+        let line2 = $4 in
         let line3 = $6 in
         If($2, line1, $3, line2, $5, line3) }
 
@@ -141,7 +141,7 @@ test:
     { BinOp($1, BShl, $3) }
   | test BSHR test
     { BinOp($1, BShr, $3) }
-  | test BXOR test 
+  | test BXOR test
     { BinOp($1, BXor, $3) }
-  | LPAREN test RPAREN 
+  | LPAREN test RPAREN
     { $2 }
