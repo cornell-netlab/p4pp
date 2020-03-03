@@ -1,6 +1,9 @@
 open Core_kernel
 open Ast
 
+let (=) = Stdlib.(=)
+let (<>) = Stdlib.(<>)
+       
 type env =
   { file : string;
     defines : (string * Int64.t) list }
