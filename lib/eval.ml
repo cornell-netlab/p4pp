@@ -7,13 +7,13 @@ type env =
 let empty file =
    { file; defines = [] }
 let is_defined env m =
-  List.Assoc.find ~equal:(=) env.defines m <> None
+  not (Option.is_none (List.Assoc.find ~equal:String.equal env.defines m))
 let define env m =
   if is_defined env m then env
-  else { env with defines = List.Assoc.add ~equal:(=) env.defines m Int64.zero }
+  else { env with defines = List.Assoc.add ~equal:String.equal env.defines m Int64.zero }
 let undefine env m =
   { env with
-    defines = List.Assoc.remove ~equal:(=) env.defines m }
+    defines = List.Assoc.remove ~equal:String.equal env.defines m }
 let get_file env = env.file
 let set_file env file = { env with file }
 
@@ -87,8 +87,8 @@ let rec eval (includes:string list) (env:env) (buf:Buffer.t) (term:term) (file_i
         let path = file in
         let env = set_file env path in
         let contents =
-          if file = "core.p4" then Bake.core_p4_str
-          else if file = "v1model.p4" then Bake.core_v1_model_str
+          if String.equal file "core.p4" then Bake.core_p4_str
+          else if String.equal file "v1model.p4" then Bake.core_v1_model_str
           else failwith ("Error: " ^ file ^ " could not be found in bake") in
           preprocess_string includes env buf file contents
       end in
@@ -111,7 +111,7 @@ let rec eval (includes:string list) (env:env) (buf:Buffer.t) (term:term) (file_i
      let b = not(is_defined env macro) in
      cond includes env buf b line_tru tru line_fls fls line_end file_io
   | If(test,line_tru, tru, line_fls, fls, line_end) ->
-     let b = Int64.zero = eval_test env test in
+     let b = Int64.(zero = eval_test env test) in
      cond includes env buf b line_tru tru line_fls fls line_end file_io
 
 and cond includes env buf b line_tru tru line_fls fls line_end file_io =
