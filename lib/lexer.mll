@@ -84,7 +84,7 @@ and line = parse
   
 and string = parse
   | eof
-    { raise (Error "File ended while reading a string litteral" ) }
+    { raise (Error "File ended while reading a string literal" ) }
   | "\\\""
     { let rest = string lexbuf in
       "\"" ^ rest }

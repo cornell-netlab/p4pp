@@ -20,7 +20,7 @@ exception ParsingError of string
 
 let preprocess verbose include_dirs defines p4_file () =
   let buf = Buffer.create 101 in
-  let env = Eval.{ file = p4_file; defines } in
+  let env = Eval.empty p4_file defines in
   ignore (Eval.preprocess_file include_dirs env buf p4_file);
   Format.print_string (Buffer.contents buf)
 

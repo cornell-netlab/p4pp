@@ -4,8 +4,8 @@ open Ast
 type env =
   { file : string;
     defines : (string * Int64.t) list }
-let empty file =
-   { file; defines = [] }
+let empty file defines =
+   { file; defines }
 let is_defined env m =
   not (Option.is_none (List.Assoc.find ~equal:String.equal env.defines m))
 let define env m =
@@ -66,7 +66,7 @@ let rec eval_test (env:env) (test:test) : Int64.t =
   | UnOp(uop,test1) ->
      eval_uop uop (eval_test env test1)
 
-let rec eval (includes:string list) (env:env) (buf:Buffer.t) (term:term) (file_io:bool): env =
+let rec eval (includes:string list) (env:env) (buf:Buffer.t) (term:term) (file_io:bool) : env =
   let current = get_file env in
   match term with
   | String(s) ->
