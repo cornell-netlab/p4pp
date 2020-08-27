@@ -32,7 +32,7 @@ type term =
   | String of string
   | Text of string
   | Include of int * bool * string
-  | Define of string
+  | Define of string * string
   | Undef of string
   | IfDef of string * int * term list * int * term list * int
   | IfNDef of string * int * term list * int * term list * int

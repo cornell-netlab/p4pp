@@ -36,7 +36,7 @@ let newline () =
 let white = [' ' '\t' '\r']
 let whitespace = white+
 let opt_whitespace = white*
-
+let non_whitespace = [^' ' '\t' '\r' '\n']+
 let identifier = ['_' 'A'-'Z' 'a'-'z']['_' 'A'-'Z' 'a'-'z' '0'-'9']*
 
 let q_chars = [^ '"' '\n']+
@@ -59,8 +59,8 @@ and line = parse
       { newline (); INCLUDE(!current_line, false, filename) }
   | "#include" opt_whitespace '<' (h_chars as filename) '>' opt_whitespace '\n'
       { newline (); INCLUDE(!current_line, true, filename) }
-  | "#define" opt_whitespace (identifier as macro) opt_whitespace macro_body opt_whitespace '\n'
-      { newline (); DEFINE(macro) }
+  | "#define" opt_whitespace (identifier as macro) opt_whitespace (macro_body as body) opt_whitespace '\n'
+      { newline (); DEFINE(macro,body) }
   | "#undef" opt_whitespace (identifier as macro) opt_whitespace '\n'
       { newline (); UNDEF(macro) }
   | "#ifdef" opt_whitespace (identifier as macro) opt_whitespace '\n'
@@ -79,7 +79,9 @@ and line = parse
         TEXT(lexeme lexbuf)}
   | eof
       { END }
-  | _
+  | whitespace 
+      { TEXT(lexeme lexbuf) }
+  | non_whitespace
       { TEXT(lexeme lexbuf) }
 
 and string = parse

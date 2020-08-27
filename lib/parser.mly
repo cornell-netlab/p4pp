@@ -22,7 +22,7 @@ open Ast
 %token<string> TEXT
 %token<string> STRING
 %token<int * bool * string> INCLUDE
-%token<string> DEFINE
+%token<string * string> DEFINE
 %token<string> UNDEF
 %token<int * string> IFDEF IFNDEF
 %token<int> IF
@@ -67,7 +67,8 @@ term:
       { let line, search, filename = $1 in
         Include(line, search, filename) }
   | DEFINE
-      { Define($1) }
+      { let macro,body = $1 in 
+        Define(macro,body) }
   | UNDEF
       { Undef($1) }
   | IFDEF term* ENDIF

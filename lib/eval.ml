@@ -9,15 +9,16 @@ let empty file includes defines =
    { file; includes; defines }
 let is_defined env m =
   not (Option.is_none (List.Assoc.find ~equal:String.equal env.defines m))
-let define env m =
+let define env m n =
   if is_defined env m then env
-  else { env with defines = List.Assoc.add ~equal:String.equal env.defines m Int64.zero }
+  else { env with defines = List.Assoc.add ~equal:String.equal env.defines m n }
 let undefine env m =
   { env with
     defines = List.Assoc.remove ~equal:String.equal env.defines m }
 let get_file env = env.file
 let set_file env file = { env with file }
 let get_includes env = env.includes
+let get_defines env = env.defines
 
 let eval_binop (bop:bop) =
   let open Int64 in
@@ -49,7 +50,7 @@ let eval_uop (uop:uop) =
 let rec eval_test (env:env) (test:test) : Int64.t =
   match test with
   | Int(n) -> n
-  | Defined(m) ->
+  | Defined(m) ->     
      if is_defined env m then Int64.zero
      else Int64.one
   | Ident(m) ->
@@ -78,7 +79,13 @@ module Make(F:F) = struct
        Buffer.add_string buf (Printf.sprintf "\"%s\"" s);
        env
     | Text(s) ->
-       Buffer.add_string buf s;
+       begin 
+         match List.Assoc.find (get_defines env) s ~equal:String.equal with
+         | Some n -> 
+            Buffer.add_string buf (Int64.to_string n)
+         | None -> 
+            Buffer.add_string buf s
+       end;
        env
     | Include(line,search,file) ->
        let path = match resolve (get_includes env) file with 
@@ -92,8 +99,9 @@ module Make(F:F) = struct
        Buffer.add_string buf "\n";
        Buffer.add_string buf (Printf.sprintf "#line %d \"%s\" %d\n" line current 2);
        env
-    | Define(m) ->
-       let env = define env m in
+    | Define(m,b) ->
+       let n = Int64.of_string b in
+       let env = define env m n in
        Buffer.add_string buf "\n";
        env
     | Undef(m) ->
