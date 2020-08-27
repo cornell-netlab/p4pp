@@ -19,10 +19,9 @@ open P4pp
 exception ParsingError of string
 
 let preprocess verbose include_dirs defines p4_file () =
-  let buf = Buffer.create 101 in
-  let env = Eval.empty p4_file defines in
-  ignore (Eval.preprocess_file include_dirs env buf p4_file);
-  Format.print_string (Buffer.contents buf)
+  let env = Eval.empty p4_file include_dirs defines in
+  let str,_ = Eval.FileSystem.(preprocess env p4_file (load p4_file)) in 
+  Printf.printf "%s" str
 
 let command =
   let spec =

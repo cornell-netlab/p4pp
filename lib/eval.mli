@@ -1,5 +1,18 @@
 
 type env
-val empty : string -> (string * Int64.t) list -> env
-val preprocess_string : string list -> env -> Buffer.t -> string -> string -> env
-val preprocess_file : string list -> env -> Buffer.t -> string -> env
+
+val empty : string -> string list -> (string * Int64.t) list -> env
+
+module type F = sig
+  val exists : string -> bool
+  val load : string -> string
+end
+
+module type S = sig
+  include F
+  val preprocess: env -> string -> string -> string * env
+end
+
+module Make(F:F) : S 
+
+module FileSystem : S

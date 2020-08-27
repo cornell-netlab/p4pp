@@ -37,12 +37,12 @@ let white = [' ' '\t' '\r']
 let whitespace = white+
 let opt_whitespace = white*
 
-
 let identifier = ['_' 'A'-'Z' 'a'-'z']['_' 'A'-'Z' 'a'-'z' '0'-'9']*
 
 let q_chars = [^ '"' '\n']+
 let h_chars = [^ '>' '\n']+
 let digits = ['0'-'9']+
+let macro_body = [^ '\n']+
 
 rule token = parse
   | "" 
@@ -53,13 +53,13 @@ rule token = parse
 and line = parse
   | '\n'
       { newline (); TEXT("\n") }
-  | "\"" 
+  | "\""
       { STRING(string lexbuf) }
-  | "#include" opt_whitespace '"' (q_chars as filename) '"' opt_whitespace '\n' 
+  | "#include" opt_whitespace '"' (q_chars as filename) '"' opt_whitespace '\n'
       { newline (); INCLUDE(!current_line, false, filename) }
-  | "#include" opt_whitespace '<' (h_chars as filename) '>' opt_whitespace '\n' 
+  | "#include" opt_whitespace '<' (h_chars as filename) '>' opt_whitespace '\n'
       { newline (); INCLUDE(!current_line, true, filename) }
-  | "#define" opt_whitespace (identifier as macro) opt_whitespace '\n' 
+  | "#define" opt_whitespace (identifier as macro) opt_whitespace macro_body opt_whitespace '\n'
       { newline (); DEFINE(macro) }
   | "#undef" opt_whitespace (identifier as macro) opt_whitespace '\n'
       { newline (); UNDEF(macro) }
@@ -81,7 +81,7 @@ and line = parse
       { END }
   | _
       { TEXT(lexeme lexbuf) }
-  
+
 and string = parse
   | eof
     { raise (Error "File ended while reading a string literal" ) }

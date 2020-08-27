@@ -3,9 +3,10 @@ open Ast
 
 type env =
   { file : string;
+    includes : string list;
     defines : (string * Int64.t) list }
-let empty file defines =
-   { file; defines }
+let empty file includes defines =
+   { file; includes; defines }
 let is_defined env m =
   not (Option.is_none (List.Assoc.find ~equal:String.equal env.defines m))
 let define env m =
@@ -16,15 +17,7 @@ let undefine env m =
     defines = List.Assoc.remove ~equal:String.equal env.defines m }
 let get_file env = env.file
 let set_file env file = { env with file }
-
-let rec find includes file =
-  match includes with
-  | [] ->
-     failwith ("Error: " ^ file ^ " could not be found")
-  | h::t ->
-     let path = Filename.concat h file in
-     if Sys.file_exists path then path
-     else find t file
+let get_includes env = env.includes
 
 let eval_binop (bop:bop) =
   let open Int64 in
@@ -66,89 +59,100 @@ let rec eval_test (env:env) (test:test) : Int64.t =
   | UnOp(uop,test1) ->
      eval_uop uop (eval_test env test1)
 
-let rec eval (includes:string list) (env:env) (buf:Buffer.t) (term:term) (file_io:bool) : env =
-  let current = get_file env in
-  match term with
-  | String(s) ->
-     Buffer.add_string buf (Printf.sprintf "\"%s\"" s);
-     env
-  | Text(s) ->
-     Buffer.add_string buf s;
-     env
-  | Include(line,search,file) ->
-     let env =
-      if file_io then begin
-        let path = find includes file in
-        let env = set_file env path in
-        let env = preprocess_file includes env buf path in
-        set_file env current
-      end
-      else begin
-        let path = file in
-        let env = set_file env path in
-        let contents =
-          if String.equal file "core.p4" then Bake.core_p4_str
-          else if String.equal file "v1model.p4" then Bake.core_v1_model_str
-          else failwith ("Error: " ^ file ^ " could not be found in bake") in
-          preprocess_string includes env buf file contents
-      end in
-     let env = set_file env current in
-     Buffer.add_string buf "\n";
-     Buffer.add_string buf (Printf.sprintf "#line %d \"%s\" %d\n" line current 2);
+module type F = sig
+  val exists : string -> bool
+  val load : string -> string
+end
+
+module type S = sig
+  include F
+  val preprocess : env -> string -> string -> string * env
+end
+
+module Make(F:F) = struct
+  include F
+  let rec eval (env:env) (buf:Buffer.t) (term:term) : env =
+    let current = get_file env in
+    match term with
+    | String(s) ->
+       Buffer.add_string buf (Printf.sprintf "\"%s\"" s);
+       env
+    | Text(s) ->
+       Buffer.add_string buf s;
+       env
+    | Include(line,search,file) ->
+       let path = match resolve (get_includes env) file with 
+         | None -> failwith ("Error: " ^ file ^ " could not be found")
+         | Some path -> path in
+       let contents = F.load path in  
+       let env = set_file env file in
+       let str,env = preprocess env path contents in
+       Buffer.add_string buf str;
+       let env = set_file env current in
+       Buffer.add_string buf "\n";
+       Buffer.add_string buf (Printf.sprintf "#line %d \"%s\" %d\n" line current 2);
+       env
+    | Define(m) ->
+       let env = define env m in
+       Buffer.add_string buf "\n";
+       env
+    | Undef(m) ->
+       let env = undefine env m in
+       Buffer.add_string buf "\n";
+       env
+    | IfDef(macro,line_tru,tru,line_fls,fls,line_end) ->
+       let b = is_defined env macro in
+       cond env buf b line_tru tru line_fls fls line_end
+    | IfNDef(macro,line_tru,tru,line_fls,fls,line_end) ->
+       let b = not(is_defined env macro) in
+       cond env buf b line_tru tru line_fls fls line_end
+    | If(test,line_tru, tru, line_fls, fls, line_end) ->
+       let b = Int64.(zero = eval_test env test) in
+       cond env buf b line_tru tru line_fls fls line_end 
+       
+  and cond env buf b line_tru tru line_fls fls line_end =
+    let current = get_file env in
+    let env =
+      if b then
+        begin
+          Buffer.add_string buf (Printf.sprintf "#line %d \"%s\"\n" line_tru current);
+          List.fold_left ~init:env ~f:(fun env term -> eval env buf term) tru
+        end
+      else
+        begin
+          Buffer.add_string buf (Printf.sprintf "#line %d \"%s\"\n" line_fls current);
+          List.fold_left ~init:env ~f:(fun env term -> eval env buf term) fls
+        end in
+    Buffer.add_string buf (Printf.sprintf "#line %d \"%s\"\n" line_end current);
     env
-  | Define(m) ->
-     let env = define env m in
-     Buffer.add_string buf "\n";
-     env
-  | Undef(m) ->
-     let env = undefine env m in
-     Buffer.add_string buf "\n";
-     env
-  | IfDef(macro,line_tru,tru,line_fls,fls,line_end) ->
-     let b = is_defined env macro in
-     cond includes env buf b line_tru tru line_fls fls line_end file_io
-  | IfNDef(macro,line_tru,tru,line_fls,fls,line_end) ->
-     let b = not(is_defined env macro) in
-     cond includes env buf b line_tru tru line_fls fls line_end file_io
-  | If(test,line_tru, tru, line_fls, fls, line_end) ->
-     let b = Int64.(zero = eval_test env test) in
-     cond includes env buf b line_tru tru line_fls fls line_end file_io
+    
+  and resolve includes (filename:string) : string option = 
+    match includes with
+      | [] ->
+         None
+      | h::t ->
+         let path = Filename.concat h filename in
+         if F.exists path then Some path 
+         else resolve t filename 
 
-and cond includes env buf b line_tru tru line_fls fls line_end file_io =
-  let current = get_file env in
-  let env =
-    if b then
-      begin
-        Buffer.add_string buf (Printf.sprintf "#line %d \"%s\"\n" line_tru current);
-        List.fold_left ~init:env ~f:(fun env term -> eval includes env buf term file_io) tru
-      end
-    else
-      begin
-        Buffer.add_string buf (Printf.sprintf "#line %d \"%s\"\n" line_fls current);              List.fold_left ~init:env ~f:(fun env term -> eval includes env buf term file_io) fls
-      end in
-  Buffer.add_string buf (Printf.sprintf "#line %d \"%s\"\n" line_end current);
-  env
+  and preprocess (env:env) (filename:string) (contents:string) : string * env =
+    let buf = Buffer.create 101 in
+    let () = Buffer.add_string buf (Printf.sprintf "#line %d \"%s\" %d\n" 1 filename 1) in
+    let lexbuf = Lexing.from_string contents in
+    let () = Prelexer.reset filename in
+    let prelex_contents = Prelexer.lex lexbuf in
+    let lexbuf = Lexing.from_string prelex_contents in
+    let terms =
+      try 
+        Parser.program Lexer.token lexbuf
+      with _ -> 
+        failwith ("Error parsing " ^ filename ^ " : " ^ string_of_int (!Lexer.current_line)) in
+    let env = set_file env filename in
+    let env = List.fold_left ~init:env ~f:(fun env term -> eval env buf term) terms in
+    (Buffer.contents buf, env)
+end
 
-and preprocess_string (includes:string list) (env:env) (buf:Buffer.t) (file:string) (file_contents:string) : env =
-  let () = Buffer.add_string buf (Printf.sprintf "#line %d \"%s\" %d\n" 1 file 1) in
-  let lexbuf = Lexing.from_string file_contents in
-  let () = Prelexer.reset file in
-  let string = Prelexer.lex lexbuf in
-  let lexbuf = Lexing.from_string string in
-  let terms =
-    try Parser.program Lexer.token lexbuf
-    with _ -> failwith ("Error parsing " ^ "typed input" ^ " : " ^ string_of_int (!Lexer.current_line)) in
-  List.fold_left ~init:env ~f:(fun env term -> eval includes env buf term false) terms
-
-and preprocess_file (includes:string list) (env:env) (buf:Buffer.t) (file:string) : env =
-  let () = Buffer.add_string buf (Printf.sprintf "#line %d \"%s\" %d\n" 1 file 1) in
-  let channel = In_channel.create file in
-  let lexbuf = Lexing.from_channel channel in
-  let () = Prelexer.reset file in
-  let string = Prelexer.lex lexbuf in
-  let () = In_channel.close channel in
-  let lexbuf = Lexing.from_string string in
-  let terms =
-    try Parser.program Lexer.token lexbuf
-    with _ -> failwith ("Error parsing " ^ file ^ " : " ^ string_of_int (!Lexer.current_line)) in
-  List.fold_left ~init:env ~f:(fun env term -> eval includes env buf term true) terms
+module FileSystem = Make(struct
+  let exists path = Sys.file_exists path
+  let load filename = In_channel.(with_file filename ~f:input_all) 
+end)
