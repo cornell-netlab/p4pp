@@ -193,9 +193,14 @@ module Make(F:F) = struct
     let () = Prelexer.reset filename in
     let prelex_contents = Prelexer.lex lexbuf in
     let lexbuf = Lexing.from_string prelex_contents in
+    let tok buf =
+        let t = Lexer.token buf in
+        print_token t;
+        t
+    in
     let terms =
       try
-        Parser.program Lexer.token lexbuf
+        Parser.program tok lexbuf
       with _ -> 
         failwith ("Error parsing " ^ filename ^ " : " ^ string_of_int
         (!Lexer.current_line)) in

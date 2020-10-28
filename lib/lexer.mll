@@ -36,6 +36,7 @@ let whitespace = white+
 let opt_whitespace = white*
 let non_whitespace = [^' ' '\t' '\r' '\n']+
 let identifier = ['_' 'A'-'Z' 'a'-'z']['_' 'A'-'Z' 'a'-'z' '0'-'9']*
+let non_ident_text = [^'_' 'A'-'Z' 'a'-'z' '\n' '\t' '\r' ' ']+
 let newline = ('\r'?'\n')
 let eod = opt_whitespace (newline | eof)
 
@@ -83,8 +84,10 @@ and line = parse
       { END }
   | whitespace 
       { TEXT(lexeme lexbuf) }
-  | non_whitespace
-      { TEXT(lexeme lexbuf) }
+  | non_ident_text
+    { TEXT(lexeme lexbuf) }
+  | identifier 
+    { IDENT(lexeme lexbuf) }
 
 and string = parse
   | eof
