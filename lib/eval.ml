@@ -1,6 +1,47 @@
 open Core_kernel
 open Ast
 
+let string_of_token (t: Parser.token) =
+  match t with
+  | UNDEF _ -> "UNDEF"
+  | TEXT s -> Printf.sprintf "TEXT(%s)" s
+  | SUB -> "SUB"
+  | STRING _ -> "STRING"
+  | RPAREN -> "RPAREN"
+  | OR -> "OR"
+  | NOT -> "NOT"
+  | NEQ -> "NEQ"
+  | MULT -> "MULT"
+  | LT -> "LT"
+  | LPAREN -> "LPAREN"
+  | LE -> "LE"
+  | INT _ -> "INT"
+  | INCLUDE _ -> "INCLUDE"
+  | IFNDEF _ -> "IFNDEF"
+  | IFDEF _ -> "IFDEF"
+  | IF _ -> "IF"
+  | IDENT _ -> "IDENT"
+  | GT -> "GT"
+  | GE -> "GE"
+  | EQ -> "EQ"
+  | ENDIF _ -> "ENDIF"
+  | END -> "END"
+  | ELSE _ -> "ELSE"
+  | DIV -> "DIV"
+  | DEFINED -> "DEFINED"
+  | DEFINE _ -> "DEFINE"
+  | BXOR -> "BXOR"
+  | BSHR -> "BSHR"
+  | BSHL -> "BSHL"
+  | BOR -> "BOR"
+  | BNOT -> "BNOT"
+  | BAND -> "BAND"
+  | AND -> "AND"
+  | ADD -> "ADD"
+
+let print_token t =
+  Printf.printf "%s " (string_of_token t)
+
 type env =
   { file : string;
     includes : string list;
@@ -51,6 +92,7 @@ let rec eval_test (env:env) (test:test) : Int64.t =
   match test with
   | Int(n) -> n
   | Defined(m) ->     
+     Printf.printf "testing %s\n" m;
      if is_defined env m then Int64.zero
      else Int64.one
   | Ident(m) ->
@@ -100,6 +142,7 @@ module Make(F:F) = struct
        Buffer.add_string buf (Printf.sprintf "#line %d \"%s\" %d\n" line current 2);
        env
     | Define(m,b) ->
+       Printf.printf "defining %s='%s'\n" m b;
        let env = define env m b in
        Buffer.add_string buf "\n";
        env
@@ -150,10 +193,11 @@ module Make(F:F) = struct
     let prelex_contents = Prelexer.lex lexbuf in
     let lexbuf = Lexing.from_string prelex_contents in
     let terms =
-      try 
+      try
         Parser.program Lexer.token lexbuf
       with _ -> 
-        failwith ("Error parsing " ^ filename ^ " : " ^ string_of_int (!Lexer.current_line)) in
+        failwith ("Error parsing " ^ filename ^ " : " ^ string_of_int
+        (!Lexer.current_line)) in
     let env = set_file env filename in
     let env = List.fold_left ~init:env ~f:(fun env term -> eval env buf term) terms in
     (Buffer.contents buf, env)
