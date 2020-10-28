@@ -57,7 +57,8 @@ let undefine env m =
   { env with
     defines = List.Assoc.remove ~equal:String.equal env.defines m }
 let get_file env = env.file
-let set_file env file = { env with file }
+let set_file env file =
+  { env with file }
 let get_includes env = env.includes
 let get_defines env = env.defines
 
@@ -92,7 +93,6 @@ let rec eval_test (env:env) (test:test) : Int64.t =
   match test with
   | Int(n) -> n
   | Defined(m) ->     
-     Printf.printf "testing %s\n" m;
      if is_defined env m then Int64.zero
      else Int64.one
   | Ident(m) ->
@@ -130,7 +130,9 @@ module Make(F:F) = struct
        end;
        env
     | Include(line,search,file) ->
-       let path = match resolve (get_includes env) file with 
+       let cwd = Filename.dirname current in 
+       let includes = cwd :: get_includes env in
+       let path = match resolve includes file with 
          | None -> failwith ("Error: " ^ file ^ " could not be found")
          | Some path -> path in
        let contents = F.load path in  
@@ -142,7 +144,6 @@ module Make(F:F) = struct
        Buffer.add_string buf (Printf.sprintf "#line %d \"%s\" %d\n" line current 2);
        env
     | Define(m,b) ->
-       Printf.printf "defining %s='%s'\n" m b;
        let env = define env m b in
        Buffer.add_string buf "\n";
        env
