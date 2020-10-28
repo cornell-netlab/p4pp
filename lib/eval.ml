@@ -4,7 +4,7 @@ open Ast
 type env =
   { file : string;
     includes : string list;
-    defines : (string * Int64.t) list }
+    defines : (string * string) list }
 let empty file includes defines =
    { file; includes; defines }
 let is_defined env m =
@@ -82,7 +82,7 @@ module Make(F:F) = struct
        begin 
          match List.Assoc.find (get_defines env) s ~equal:String.equal with
          | Some n -> 
-            Buffer.add_string buf (Int64.to_string n)
+            Buffer.add_string buf n
          | None -> 
             Buffer.add_string buf s
        end;
@@ -100,8 +100,7 @@ module Make(F:F) = struct
        Buffer.add_string buf (Printf.sprintf "#line %d \"%s\" %d\n" line current 2);
        env
     | Define(m,b) ->
-       let n = Int64.of_string b in
-       let env = define env m n in
+       let env = define env m b in
        Buffer.add_string buf "\n";
        env
     | Undef(m) ->

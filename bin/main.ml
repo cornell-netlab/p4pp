@@ -25,13 +25,9 @@ let go verbose include_dirs defines p4_file =
   Printf.printf "%s" str
 
 let define str =
-  try 
-    match String.split_on_chars ~on:['='] str with
-    | [x] -> (x,Int64.zero)
-    | [x;y] -> (x,Int64.of_string y)
-    | _ -> failwith "Error"
-  with  _ -> 
-    failwith ("Error: malformed command-line argument '-D " ^ str ^ "'")
+  match String.split_on_chars ~on:['='] str with
+  | x::rest -> (x,String.concat ~sep:"=" rest)
+  | [] -> failwith ("Error: malformed command-line argument '-D " ^ str ^ "'")
          
 let command =
   Command.basic ~summary:"p4pp: P4 preprocessor"
