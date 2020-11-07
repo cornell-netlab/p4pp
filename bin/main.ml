@@ -27,8 +27,8 @@ let go verbose include_dirs defines p4_file =
 let define str =
   try 
     match String.split_on_chars ~on:['='] str with
-    | [x] -> (x,Int64.zero)
-    | [x;y] -> (x,Int64.of_string y)
+    | [x] -> (x,"")
+    | [x;y] -> (x,y)
     | _ -> failwith "Error"
   with  _ -> 
     failwith ("Error: malformed command-line argument '-D " ^ str ^ "'")

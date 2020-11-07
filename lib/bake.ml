@@ -81,7 +81,7 @@ match_kind {
 #endif  /* _CORE_P4_ */
 |}
 
-let core_v1_model_str =
+let v1model_p4_str =
   {|/*
 Copyright 2013-present Barefoot Networks, Inc.
 

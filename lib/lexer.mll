@@ -29,8 +29,6 @@ let reset () =
 
 let newline () =
   incr current_line
-
-
 }
 
 let white = [' ' '\t' '\r']
@@ -59,7 +57,9 @@ and line = parse
       { newline (); INCLUDE(!current_line, false, filename) }
   | "#include" opt_whitespace '<' (h_chars as filename) '>' opt_whitespace '\n'
       { newline (); INCLUDE(!current_line, true, filename) }
-  | "#define" opt_whitespace (identifier as macro) opt_whitespace (macro_body as body) opt_whitespace '\n'
+  | "#define" opt_whitespace (identifier as macro) opt_whitespace '\n'
+      { newline (); DEFINE(macro, "") }
+  | "#define" opt_whitespace (identifier as macro) whitespace (macro_body as body) opt_whitespace '\n'
       { newline (); DEFINE(macro,body) }
   | "#undef" opt_whitespace (identifier as macro) opt_whitespace '\n'
       { newline (); UNDEF(macro) }

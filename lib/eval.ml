@@ -4,7 +4,7 @@ open Ast
 type env =
   { file : string;
     includes : string list;
-    defines : (string * Int64.t) list }
+    defines : (string * string) list }
 let empty file includes defines =
    { file; includes; defines }
 let is_defined env m =
@@ -81,8 +81,8 @@ module Make(F:F) = struct
     | Text(s) ->
        begin 
          match List.Assoc.find (get_defines env) s ~equal:String.equal with
-         | Some n -> 
-            Buffer.add_string buf (Int64.to_string n)
+         | Some s' -> 
+            Buffer.add_string buf s'
          | None -> 
             Buffer.add_string buf s
        end;
@@ -100,8 +100,7 @@ module Make(F:F) = struct
        Buffer.add_string buf (Printf.sprintf "#line %d \"%s\" %d\n" line current 2);
        env
     | Define(m,b) ->
-       let n = Int64.of_string b in
-       let env = define env m n in
+       let env = define env m b in
        Buffer.add_string buf "\n";
        env
     | Undef(m) ->
@@ -137,7 +136,7 @@ module Make(F:F) = struct
   and resolve includes (filename:string) : string option = 
     match includes with
       | [] ->
-         None
+        None
       | h::t ->
          let path = Filename.concat h filename in
          if F.exists path then Some path 
@@ -152,7 +151,8 @@ module Make(F:F) = struct
     let lexbuf = Lexing.from_string prelex_contents in
     let terms =
       try 
-        Parser.program Lexer.token lexbuf
+        let r = Parser.program Lexer.token lexbuf in
+        r
       with _ -> 
         failwith ("Error parsing " ^ filename ^ " : " ^ string_of_int (!Lexer.current_line)) in
     let env = set_file env filename in
@@ -163,4 +163,17 @@ end
 module FileSystem = Make(struct
   let exists path = Sys.file_exists path
   let load filename = In_channel.(with_file filename ~f:input_all) 
+end)
+
+module Web = Make(struct
+  let exists = function
+    | "/core.p4" 
+    | "/v1model.p4" -> 
+      true
+    | str -> 
+      false
+  let load = function
+    | "/core.p4" -> Bake.core_p4_str
+    | "/v1model.p4" -> Bake.v1model_p4_str
+    |  fn -> failwith (fn ^ ": not found")
 end)
