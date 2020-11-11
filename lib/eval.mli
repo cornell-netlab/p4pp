@@ -1,7 +1,7 @@
 
 type env
 
-val empty : string -> string list -> (string * Int64.t) list -> env
+val empty : string -> string list -> (string * string) list -> env
 
 module type F = sig
   val exists : string -> bool
@@ -16,3 +16,5 @@ end
 module Make(F:F) : S 
 
 module FileSystem : S
+
+module Web : S
