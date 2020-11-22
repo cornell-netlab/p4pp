@@ -8,9 +8,9 @@ language.
     ```
     ocamlc -v
     ```
-    If the version is less than 4.09.0, upgrade:
+    If the version is less than 4.09.1, upgrade:
     ```
-    opam switch 4.09.0
+    opam switch 4.09.1
     ```
 
 1. Use OPAM to build and install p4pp. 
