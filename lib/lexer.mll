@@ -27,7 +27,7 @@ let reset () =
   lexer := Line;
   current_line := 1
 
-let newline () =
+let incr_line () =
   incr current_line
 }
 
@@ -36,6 +36,9 @@ let whitespace = white+
 let opt_whitespace = white*
 let non_whitespace = [^' ' '\t' '\r' '\n']+
 let identifier = ['_' 'A'-'Z' 'a'-'z']['_' 'A'-'Z' 'a'-'z' '0'-'9']*
+let non_ident_text = [^'_' 'A'-'Z' 'a'-'z' '\n' '\t' '\r' ' ']+
+let newline = ('\r'?'\n')
+let eod = opt_whitespace (newline | eof)
 
 let q_chars = [^ '"' '\n']+
 let h_chars = [^ '>' '\n']+
@@ -49,40 +52,42 @@ rule token = parse
       | Test -> test lexbuf }
 
 and line = parse
-  | '\n'
-      { newline (); TEXT("\n") }
+  | newline
+      { incr_line (); TEXT("\n") }
   | "\""
       { STRING(string lexbuf) }
-  | "#include" opt_whitespace '"' (q_chars as filename) '"' opt_whitespace '\n'
-      { newline (); INCLUDE(!current_line, false, filename) }
-  | "#include" opt_whitespace '<' (h_chars as filename) '>' opt_whitespace '\n'
-      { newline (); INCLUDE(!current_line, true, filename) }
-  | "#define" opt_whitespace (identifier as macro) opt_whitespace '\n'
-      { newline (); DEFINE(macro, "") }
-  | "#define" opt_whitespace (identifier as macro) whitespace (macro_body as body) opt_whitespace '\n'
-      { newline (); DEFINE(macro,body) }
-  | "#undef" opt_whitespace (identifier as macro) opt_whitespace '\n'
-      { newline (); UNDEF(macro) }
-  | "#ifdef" opt_whitespace (identifier as macro) opt_whitespace '\n'
-      { newline (); IFDEF(!current_line, macro) }
-  | "#ifndef" opt_whitespace (identifier as macro) opt_whitespace '\n'
-      { newline (); IFNDEF(!current_line, macro) }
+  | "#include" opt_whitespace '"' (q_chars as filename) '"' eod
+      { incr_line (); INCLUDE(!current_line, false, filename) }
+  | "#include" opt_whitespace '<' (h_chars as filename) '>' eod
+      { incr_line (); INCLUDE(!current_line, true, filename) }
+  | "#define" opt_whitespace (identifier as macro) whitespace (macro_body as body) eod
+      { incr_line (); DEFINE(macro,body) }
+  | "#define" opt_whitespace (identifier as macro) eod
+      { incr_line (); DEFINE(macro,"") }
+  | "#undef" opt_whitespace (identifier as macro) eod
+      { incr_line (); UNDEF(macro) }
+  | "#ifdef" whitespace (identifier as macro) eod
+      { incr_line (); IFDEF(!current_line, macro) }
+  | "#ifndef" whitespace (identifier as macro) eod
+      { incr_line (); IFNDEF(!current_line, macro) }
   | "#if" 
       { lexer := Test; 
         IF(!current_line) }
-  | "#else" opt_whitespace '\n'
-      { newline (); ELSE(!current_line) }
-  | "#endif" opt_whitespace '\n'
-      { newline (); ENDIF(!current_line) }
-  | "#line" opt_whitespace (digits as number) [^ '\n']* '\n' 
+  | "#else" eod
+      { incr_line (); ELSE(!current_line) }
+  | "#endif" eod
+      { incr_line (); ENDIF(!current_line) }
+  | "#line" opt_whitespace (digits as number) eod
       { current_line := int_of_string number;
         TEXT(lexeme lexbuf)}
   | eof
       { END }
   | whitespace 
       { TEXT(lexeme lexbuf) }
-  | non_whitespace
-      { TEXT(lexeme lexbuf) }
+  | non_ident_text
+    { TEXT(lexeme lexbuf) }
+  | identifier 
+    { IDENT(lexeme lexbuf) }
 
 and string = parse
   | eof
@@ -154,7 +159,7 @@ and test = parse
   | "^"
     { BXOR }
   | "\n"
-    { lexer := Line; newline (); TEXT(lexeme lexbuf) }
+    { lexer := Line; incr_line (); TEXT(lexeme lexbuf) }
   | whitespace
     { test lexbuf }
   | eof 

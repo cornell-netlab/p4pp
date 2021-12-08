@@ -1,6 +1,47 @@
 open Core_kernel
 open Ast
 
+let string_of_token (t: Parser.token) =
+  match t with
+  | UNDEF _ -> "UNDEF"
+  | TEXT s -> Printf.sprintf "TEXT(%s)" s
+  | SUB -> "SUB"
+  | STRING _ -> "STRING"
+  | RPAREN -> "RPAREN"
+  | OR -> "OR"
+  | NOT -> "NOT"
+  | NEQ -> "NEQ"
+  | MULT -> "MULT"
+  | LT -> "LT"
+  | LPAREN -> "LPAREN"
+  | LE -> "LE"
+  | INT _ -> "INT"
+  | INCLUDE _ -> "INCLUDE"
+  | IFNDEF _ -> "IFNDEF"
+  | IFDEF _ -> "IFDEF"
+  | IF _ -> "IF"
+  | IDENT _ -> "IDENT"
+  | GT -> "GT"
+  | GE -> "GE"
+  | EQ -> "EQ"
+  | ENDIF _ -> "ENDIF"
+  | END -> "END"
+  | ELSE _ -> "ELSE"
+  | DIV -> "DIV"
+  | DEFINED -> "DEFINED"
+  | DEFINE _ -> "DEFINE"
+  | BXOR -> "BXOR"
+  | BSHR -> "BSHR"
+  | BSHL -> "BSHL"
+  | BOR -> "BOR"
+  | BNOT -> "BNOT"
+  | BAND -> "BAND"
+  | AND -> "AND"
+  | ADD -> "ADD"
+
+let print_token t =
+  Printf.printf "%s " (string_of_token t)
+
 type env =
   { file : string;
     includes : string list;
@@ -16,7 +57,8 @@ let undefine env m =
   { env with
     defines = List.Assoc.remove ~equal:String.equal env.defines m }
 let get_file env = env.file
-let set_file env file = { env with file }
+let set_file env file =
+  { env with file }
 let get_includes env = env.includes
 let get_defines env = env.defines
 
@@ -81,14 +123,16 @@ module Make(F:F) = struct
     | Text(s) ->
        begin 
          match List.Assoc.find (get_defines env) s ~equal:String.equal with
-         | Some s' -> 
-            Buffer.add_string buf s'
+         | Some n -> 
+            Buffer.add_string buf n
          | None -> 
             Buffer.add_string buf s
        end;
        env
     | Include(line,search,file) ->
-       let path = match resolve (get_includes env) file with 
+       let cwd = Filename.dirname current in 
+       let includes = cwd :: get_includes env in
+       let path = match resolve includes file with 
          | None -> failwith ("Error: " ^ file ^ " could not be found")
          | Some path -> path in
        let contents = F.load path in  
@@ -149,12 +193,17 @@ module Make(F:F) = struct
     let () = Prelexer.reset filename in
     let prelex_contents = Prelexer.lex lexbuf in
     let lexbuf = Lexing.from_string prelex_contents in
+    let tok buf =
+        let t = Lexer.token buf in
+        print_token t;
+        t
+    in
     let terms =
-      try 
-        let r = Parser.program Lexer.token lexbuf in
-        r
+      try
+        Parser.program tok lexbuf
       with _ -> 
-        failwith ("Error parsing " ^ filename ^ " : " ^ string_of_int (!Lexer.current_line)) in
+        failwith ("Error parsing " ^ filename ^ " : " ^ string_of_int
+        (!Lexer.current_line)) in
     let env = set_file env filename in
     let env = List.fold_left ~init:env ~f:(fun env term -> eval env buf term) terms in
     (Buffer.contents buf, env)

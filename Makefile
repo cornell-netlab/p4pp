@@ -32,3 +32,6 @@ install:
 
 clean:
 	dune clean
+
+test:
+	dune exec $(NAME) ./ebpf_model.p4
