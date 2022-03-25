@@ -1,6 +1,6 @@
-open Core_kernel
+open Core
 open Ast
-
+   
 let string_of_token (t: Parser.token) =
   match t with
   | UNDEF _ -> "UNDEF"
@@ -209,8 +209,13 @@ module Make(F:F) = struct
     (Buffer.contents buf, env)
 end
 
+
 module FileSystem = Make(struct
-  let exists path = Sys.file_exists path
+  let exists path =
+    match Sys_unix.file_exists path with 
+    | `Yes -> true
+    | `No | `Unknown -> false
+                      
   let load filename = In_channel.(with_file filename ~f:input_all) 
 end)
 

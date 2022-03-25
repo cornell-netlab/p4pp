@@ -7,4 +7,4 @@
 (library
   (public_name p4pp)
   (name p4pp)
-  (libraries core_kernel))
+  (libraries core core_unix.sys_unix))

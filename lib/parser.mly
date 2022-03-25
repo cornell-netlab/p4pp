@@ -14,7 +14,7 @@
  *)
 
 %{
-open Core_kernel
+open Core
 open Ast
 %}
 
