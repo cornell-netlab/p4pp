@@ -14,7 +14,7 @@ build: [
   ["dune" "build" "@doc" "-p" name "-j" jobs] {with-doc}
 ]
 depends: [
-  "ocaml" {>= "4.09.1"}
+  "ocaml" {>= "4.11"}
   "dune" {>= "1.4"}
   "menhir" {>= "20180523" & <= "20211230"}
   "core" {>= "v0.13.0"}
