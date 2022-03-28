@@ -1,4 +1,4 @@
-opam-version: "2.0"
+opam-version: "2.1"
 version: "0.1.10"
 synopsis: "P4PP: Preprocessor for P4 Language"
 maintainer: "jnfoster@cs.cornell.edu"

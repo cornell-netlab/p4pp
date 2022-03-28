@@ -25,11 +25,9 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Use OCaml ${{ matrix.ocaml-version }}
-        uses: avsm/setup-ocaml@v1
+        uses: avsm/setup-ocaml@v2
         with:
           ocaml-version: ${{ matrix.ocaml-version }}
-
-      - run: opam pin add p4pp.dev . --no-action
 
       - run: opam install . --deps-only --with-test
 
