@@ -29,8 +29,6 @@ jobs:
 
       - run: opam pin add p4pp.dev . --no-action
 
-      - run: opam depext p4pp --yes --with-test
-
       - run: opam install . --deps-only --with-test
 
       - run: opam exec -- dune build
